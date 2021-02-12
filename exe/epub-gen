@@ -5,8 +5,6 @@ require 'zip'
 require 'pathname'
 require 'pry'
 
-directory = EpubGen::Directory.new(Pathname.new(File.expand_path(ARGV[0])))
-
 Zip.default_compression = Zlib::BEST_COMPRESSION
 Zip::File.open('book.epub', Zip::File::CREATE) do |zipfile|
   # input_filenames.each do |filename|
@@ -18,29 +16,26 @@ Zip::File.open('book.epub', Zip::File::CREATE) do |zipfile|
 
   uuid = SecureRandom.hex(16)
 
-  package = EpubGen::Package.new(directory: directory, uuid: uuid)
-  toc = EpubGen::TOC.new(directory: directory, uuid: uuid)
+  book = EpubGen::Book.new(path: ARGV[0], uuid: "unique-id")
 
   zipfile.add_stored("mimetype", "mimetype")
 
-  zipfile.get_output_stream("OEBPS/package.opf") { |f| f.write package.generate }
-  zipfile.get_output_stream("OEBPS/toc.ncx") { |f| f.write toc.generate }
+  zipfile.get_output_stream("OEBPS/package.opf") { |f| f.write book.package.generate }
+  zipfile.get_output_stream("OEBPS/toc.ncx") { |f| f.write book.toc.generate }
+  zipfile.get_output_stream("OEBPS/nav.xhtml") { |f| f.write book.nav.generate }
   zipfile.get_output_stream("META-INF/container.xml") { |f| f.write EpubGen::Container.new.generate }
   zipfile.add("META-INF/com.apple.ibooks.display-options.xml", "com.apple.ibooks.display-options.xml")
+  zipfile.add("OEBPS/book.xhtml", "book/html/book.xhtml")
 
-  directory.chapters.each do |chapter|
-    zipfile.add("OEBPS/#{chapter.relative_path}", chapter.path)
-  end
-
-  directory.images.each do |image|
+  book.images.each do |image|
     zipfile.add("OEBPS/#{image.relative_path}", image.path)
   end
 
-  zipfile.add("OEBPS/title_page.xhtml", directory.title_page)
-  zipfile.add("OEBPS/nav.xhtml", "nav.xhtml")
-  zipfile.add("OEBPS/style.css", "css/style.css")
-  zipfile.add("OEBPS/fonts.css", "css/fonts.css")
-  zipfile.add("OEBPS/pygments.css", "css/pygments.css")
+  zipfile.add("OEBPS/title_page.xhtml", book.title_page)
+  zipfile.add("OEBPS/cover.png", "book/cover.png")
+  zipfile.add("OEBPS/style.css", "book/css/style.css")
+  zipfile.add("OEBPS/fonts.css", "book/css/fonts.css")
+  zipfile.add("OEBPS/pygments.css", "book/css/pygments.css")
   zipfile.add("OEBPS/titillium.ttf", "book/fonts/titillium.ttf")
   zipfile.add("OEBPS/titillium-bold.ttf", "book/fonts/titillium-bold.ttf")
   zipfile.add("OEBPS/CascadiaMono.ttf", "book/fonts/CascadiaMono.ttf")

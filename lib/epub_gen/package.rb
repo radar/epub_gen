@@ -4,10 +4,10 @@ require 'time'
 
 module EpubGen
   class Package
-    attr_reader :directory, :uuid
+    attr_reader :book, :uuid
 
-    def initialize(directory:, uuid:)
-      @directory = directory
+    def initialize(book:, uuid:)
+      @book = book
       @uuid = uuid
     end
 
@@ -43,15 +43,17 @@ module EpubGen
         # end
 
         xml["dc"].title(id: "pub-title") do
-          xml.text "Active Rails"
+          xml.text book.title
         end
 
         xml.meta(property: "title-type", refines: "#pub-title") do
           xml.text "main"
         end
 
-        xml["dc"].creator(id: "creator1") do
-          xml.text "epubgen"
+        book.authors.each_with_index do |author, idx|
+          xml["dc"].creator(id: "creator#{idx}") do
+            xml.text author
+          end
         end
 
         xml.meta(property: "role", refines: "creator1") do
@@ -70,6 +72,7 @@ module EpubGen
 
     def manifest(xml)
       xml.manifest do
+        xml.item(id: "cover", properties: "cover-image", href: "cover.png", "media-type" => "image/png")
         title_page(xml)
         chapters(xml)
         images(xml)
@@ -89,29 +92,19 @@ module EpubGen
     end
 
     def chapters(xml)
-      directory.chapters.each do |chapter|
-        xml.item(id: chapter.id, href: chapter.relative_path, "media-type": "application/xhtml+xml")
-      end
+      xml.item(id: "book", href: "book.xhtml", "media-type": "application/xhtml+xml")
     end
 
     def images(xml)
-      directory.images.each do |image|
+      book.images.each do |image|
         xml.item(id: image.id, href: image.relative_path, "media-type": image.media_type)
-      end
-    end
-
-    def chapters(xml)
-      directory.chapters.each do |chapter|
-        xml.item(id: chapter.id, href: chapter.relative_path, "media-type": "application/xhtml+xml")
       end
     end
 
     def spine(xml)
       xml.spine(toc: "ncx") do
         xml.itemref(idref: "title_page")
-        directory.chapters.each do |chapter|
-          xml.itemref(idref: chapter.id)
-        end
+        xml.itemref(idref: "book")
       end
     end
   end

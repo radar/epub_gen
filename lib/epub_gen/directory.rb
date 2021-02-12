@@ -1,7 +1,7 @@
 require 'mime-types'
+require 'yaml'
 
 module EpubGen
-  Chapter = Struct.new(:id, :path, :relative_path, keyword_init: true)
   Image = Struct.new(:id, :path, :relative_path, :media_type, keyword_init: true)
 
   class Directory
@@ -14,14 +14,13 @@ module EpubGen
       path + "title_page.xhtml"
     end
 
-    def chapters
-      chapter_files = Dir["#{path}/chapters/*.{x,}html"].sort
-      p chapter_files
-      chapter_files.map do |chapter|
-        Chapter.new(
-          id: "chapter-" + File.basename(Pathname.new(chapter).sub_ext('')),
-          path: chapter,
-          relative_path: Pathname.new(chapter).relative_path_from(path + "chapters")
+    def html_files
+      html_files = Dir["#{path}/html/*.{x,}html"].sort
+      html_files.map do |html|
+        HTMLFile.new(
+          id: "html-" + File.basename(Pathname.new(html).sub_ext('')),
+          path: html,
+          relative_path: Pathname.new(html).relative_path_from(path + "html")
         )
       end
     end
@@ -31,12 +30,16 @@ module EpubGen
       images.map do |image|
         filename = File.basename(Pathname.new(image).sub_ext(''))
         Image.new(
-          id: "image-" + filename,
+          id: ("image-" + image).tr('/.+', '-'),
           path: image,
           relative_path: Pathname.new(image).relative_path_from(path + "images"),
           media_type: MIME::Types.type_for(image).first.to_s
         )
       end
+    end
+
+    def metadata
+      YAML.load(File.read(path + "metadata.yml"))
     end
   end
 end
