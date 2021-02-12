@@ -1,0 +1,47 @@
+#!/usr/bin/env ruby
+
+require 'epub_gen'
+require 'zip'
+require 'pathname'
+require 'pry'
+
+directory = EpubGen::Directory.new(Pathname.new(File.expand_path(ARGV[0])))
+
+Zip.default_compression = Zlib::BEST_COMPRESSION
+Zip::File.open('book.epub', Zip::File::CREATE) do |zipfile|
+  # input_filenames.each do |filename|
+  #   # Two arguments:
+  #   # - The name of the file as it will appear in the archive
+  #   # - The original file, including the path to find it
+  #   zipfile.add(filename, File.join(folder, filename))
+  # end
+
+  uuid = SecureRandom.hex(16)
+
+  package = EpubGen::Package.new(directory: directory, uuid: uuid)
+  toc = EpubGen::TOC.new(directory: directory, uuid: uuid)
+
+  zipfile.add_stored("mimetype", "mimetype")
+
+  zipfile.get_output_stream("OEBPS/package.opf") { |f| f.write package.generate }
+  zipfile.get_output_stream("OEBPS/toc.ncx") { |f| f.write toc.generate }
+  zipfile.get_output_stream("META-INF/container.xml") { |f| f.write EpubGen::Container.new.generate }
+  zipfile.add("META-INF/com.apple.ibooks.display-options.xml", "com.apple.ibooks.display-options.xml")
+
+  directory.chapters.each do |chapter|
+    zipfile.add("OEBPS/#{chapter.relative_path}", chapter.path)
+  end
+
+  directory.images.each do |image|
+    zipfile.add("OEBPS/#{image.relative_path}", image.path)
+  end
+
+  zipfile.add("OEBPS/title_page.xhtml", directory.title_page)
+  zipfile.add("OEBPS/nav.xhtml", "nav.xhtml")
+  zipfile.add("OEBPS/style.css", "css/style.css")
+  zipfile.add("OEBPS/fonts.css", "css/fonts.css")
+  zipfile.add("OEBPS/pygments.css", "css/pygments.css")
+  zipfile.add("OEBPS/titillium.ttf", "book/fonts/titillium.ttf")
+  zipfile.add("OEBPS/titillium-bold.ttf", "book/fonts/titillium-bold.ttf")
+  zipfile.add("OEBPS/CascadiaMono.ttf", "book/fonts/CascadiaMono.ttf")
+end
